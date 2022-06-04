@@ -115,7 +115,6 @@ fn substitute(atom: Atom, substitution: Substitution) -> Atom {
 fn unify(a: Atom, b: Atom) -> Option<Substitution> {
     fn go(mut x: impl Iterator<Item = (Term, Term)>) -> Option<Substitution> {
         let ts = x.next();
-        dbg!(&ts);
         match ts {
             None => Some(empty_substition()),
             Some((sa @ Sym(_), sb @ Sym(_))) => {
@@ -142,6 +141,27 @@ fn unify(a: Atom, b: Atom) -> Option<Substitution> {
         go(a.terms.into_iter().zip(b.terms.into_iter()))
     } else {
         None
+    }
+}
+
+fn query(pred_sym: String, pr: Program) -> Vec<Substitution> {
+    let kb = solve(pr.clone())
+        .into_iter()
+        .filter(|x| x.pred_sym == pred_sym)
+        .map(|x| x.terms);
+    let qv = pr
+        .into_iter()
+        .filter(|x| x.head.pred_sym == pred_sym)
+        .map(|x| x.head.terms)
+        .collect::<Vec<_>>();
+
+    if let Some(qv) = qv.first() {
+        kb.map(|k| k.into_iter().zip(qv.clone().into_iter()).collect())
+            .collect()
+    } else if qv.is_empty() {
+        panic!("empty");
+    } else {
+        panic!("multiple clauses");
     }
 }
 
@@ -185,53 +205,87 @@ fn main() {
             },
             body: vec![],
         });
-    let rules = vec![
-        Rule {
-            head: Atom {
-                pred_sym: "academicAncestor".to_string(),
-                terms: vec![Var("X".to_string()), Var("Y".to_string())],
+        let rules = vec![
+            Rule {
+                head: Atom {
+                    pred_sym: "academicAncestor".to_string(),
+                    terms: vec![Var("X".to_string()), Var("Y".to_string())],
+                },
+                body: vec![Atom {
+                    pred_sym: "advisor".to_string(),
+                    terms: vec![Var("X".to_string()), Var("Y".to_string())],
+                }],
             },
-            body: vec![Atom {
-                pred_sym: "advisor".to_string(),
-                terms: vec![Var("X".to_string()), Var("Y".to_string())],
-            }],
-        },
-        Rule {
-            head: Atom {
-                pred_sym: "academicAncestor".to_string(),
-                terms: vec![Var("X".to_string()), Var("Y".to_string())],
-            },
-            body: vec![
-                Atom {
+            Rule {
+                head: Atom {
                     pred_sym: "academicAncestor".to_string(),
                     terms: vec![Var("X".to_string()), Var("Z".to_string())],
                 },
-                Atom {
-                    pred_sym: "advisor".to_string(),
-                    terms: vec![Var("Z".to_string()), Var("Y".to_string())],
+                body: vec![
+                    Atom {
+                        pred_sym: "academicAncestor".to_string(),
+                        terms: vec![Var("X".to_string()), Var("Y".to_string())],
+                    },
+                    Atom {
+                        pred_sym: "advisor".to_string(),
+                        terms: vec![Var("Y".to_string()), Var("Z".to_string())],
+                    },
+                ],
+            },
+        ];
+        let queries = vec![
+            Rule {
+                head: Atom {
+                    pred_sym: "query1".to_string(),
+                    terms: vec![Var("Intermediate".to_string())],
                 },
-            ],
-        },
-    ];
-    let queries = vec![
-        Rule{ head: Atom{ pred_sym: "query1".to_string(), terms: vec![Var("Intermediate".to_string())] }, body: vec![vec![Sym("Robin Milner".to_string()), Sym("Intermediate".to_string())], vec![Sym("Intermediate".to_string()), Sym("Mistral Contrastin".to_string())]].into_iter().map(|x| Atom{ pred_sym: "academicAncestor".to_string(), terms: x }).collect() },
-        Rule{ head: Atom{ pred_sym: "query2".to_string(), terms: vec![] }, body: vec![Atom{ pred_sym: "academicAncestor".to_string(), terms: vec![Sym("Alan Turing".to_string()), Sym("Mistral Contrastin".to_string())]}] },
-        Rule{ head: Atom{ pred_sym: "query3".to_string(), terms: vec![] }, body: vec![Atom{ pred_sym: "academicAncestor".to_string(), terms: vec![Sym("David Wheeler".to_string()), Sym("Mistral Conrastin".to_string())] }] },
-    ];
+                body: vec![
+                    vec![
+                        Sym("Robin Milner".to_string()),
+                        Sym("Intermediate".to_string()),
+                    ],
+                    vec![
+                        Sym("Intermediate".to_string()),
+                        Sym("Mistral Contrastin".to_string()),
+                    ],
+                ]
+                .into_iter()
+                .map(|x| Atom {
+                    pred_sym: "academicAncestor".to_string(),
+                    terms: x,
+                })
+                .collect(),
+            },
+            Rule {
+                head: Atom {
+                    pred_sym: "query2".to_string(),
+                    terms: vec![],
+                },
+                body: vec![Atom {
+                    pred_sym: "academicAncestor".to_string(),
+                    terms: vec![
+                        Sym("Alan Turing".to_string()),
+                        Sym("Mistral Contrastin".to_string()),
+                    ],
+                }],
+            },
+            Rule {
+                head: Atom {
+                    pred_sym: "query3".to_string(),
+                    terms: vec![],
+                },
+                body: vec![Atom {
+                    pred_sym: "academicAncestor".to_string(),
+                    terms: vec![
+                        Sym("David Wheeler".to_string()),
+                        Sym("Mistral Conrastin".to_string()),
+                    ],
+                }],
+            },
+        ];
 
-    let a: Vec<_> = facts.chain(rules.into_iter()).collect(); //.chain(queries.into_iter()).collect();
-    a
-    };    
+        let a: Vec<_> = facts.chain(rules.into_iter()).collect(); //.chain(queries.into_iter()).collect();
+        a
+    };
     dbg!(solve(ancestor));
-    // let a = Atom { pred_sym: "a".to_string(), terms: vec![Var("X".to_string()), Sym("5".to_string())]};
-    // let b = Atom { pred_sym: "a".to_string(), terms: vec![Sym("6".to_string()), Sym("5".to_string())]};
-    // let c = Atom { pred_sym: "a".to_string(), terms: vec![Sym("6".to_string()), Var("Y".to_string())]};
-
-    // let subs = unify(a.clone(), b).unwrap();
-    // // let c = substitute(a, subs);
-    // let kb = hashset![Atom { pred_sym: "a".to_string(), terms: vec![Sym("6".to_string()), Sym("5".to_string())]},
-    //               Atom { pred_sym: "a".to_string(), terms: vec![Sym("8".to_string()), Sym("7".to_string())]},];
-
-    // let d = eval_atom(kb, c, subs);
-    // dbg!(d);
 }
