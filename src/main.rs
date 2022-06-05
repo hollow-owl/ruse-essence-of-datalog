@@ -216,22 +216,22 @@ fn main() {
                     terms: vec![Var("X".to_string()), Var("Y".to_string())],
                 }],
             },
-            Rule {
-                head: Atom {
-                    pred_sym: "academicAncestor".to_string(),
-                    terms: vec![Var("X".to_string()), Var("Z".to_string())],
-                },
-                body: vec![
-                    Atom {
-                        pred_sym: "academicAncestor".to_string(),
-                        terms: vec![Var("X".to_string()), Var("Y".to_string())],
-                    },
-                    Atom {
-                        pred_sym: "advisor".to_string(),
-                        terms: vec![Var("Y".to_string()), Var("Z".to_string())],
-                    },
-                ],
-            },
+            // Rule {
+            //     head: Atom {
+            //         pred_sym: "academicAncestor".to_string(),
+            //         terms: vec![Var("X".to_string()), Var("Z".to_string())],
+            //     },
+            //     body: vec![
+            //         Atom {
+            //             pred_sym: "academicAncestor".to_string(),
+            //             terms: vec![Var("X".to_string()), Var("Y".to_string())],
+            //         },
+            //         Atom {
+            //             pred_sym: "advisor".to_string(),
+            //             terms: vec![Var("Y".to_string()), Var("Z".to_string())],
+            //         },
+            //     ],
+            // },
         ];
         let queries = vec![
             Rule {
@@ -288,4 +288,43 @@ fn main() {
         a
     };
     dbg!(solve(ancestor));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_eval_rule() {
+        let facts = vec![
+            vec![
+                Sym("Andrew Rice".to_string()),
+                Sym("Mistral Contrastin".to_string()),
+            ],
+        ]
+        .into_iter()
+        .map(|terms| Rule {
+            head: Atom {
+                pred_sym: "adviser".to_string(),
+                terms,
+            },
+            body: vec![],
+        });
+        let rules = vec![
+            Rule {
+                head: Atom {
+                    pred_sym: "academicAncestor".to_string(),
+                    terms: vec![Var("X".to_string()), Var("Y".to_string())],
+                },
+                body: vec![Atom {
+                    pred_sym: "advisor".to_string(),
+                    terms: vec![Var("X".to_string()), Var("Y".to_string())],
+                }],
+            }];
+        
+        let program = facts.chain(rules.into_iter()).collect();
+        let con = immediate_consequence(program, HashSet::new());
+        dbg!(con);
+
+    }
 }
