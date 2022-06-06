@@ -84,10 +84,10 @@ fn walk(kb: KnowlegeBase, body: Vec<Atom>) -> Vec<Substitution> {
 }
 
 fn eval_atom(kb: KnowlegeBase, atom: Atom, substitutions: Vec<Substitution>) -> Vec<Substitution> {
-    substitutions
-        .into_iter()
-        .map(|sub| {
+    let mut new_subs = vec![];
+    for sub in substitutions {
             let down_to_earth_atom = substitute(atom.clone(), sub.clone());
+            dbg!(&kb,&down_to_earth_atom,&sub);
             let ext: HashMap<Term, Term> = kb
                 .clone()
                 .into_iter()
@@ -95,9 +95,12 @@ fn eval_atom(kb: KnowlegeBase, atom: Atom, substitutions: Vec<Substitution>) -> 
                 .chain(iter::once(sub))
                 .flatten()
                 .collect();
-            ext
-        })
-        .collect()
+            if !ext.is_empty() {
+                new_subs.push(ext);
+            }
+            
+    }
+    new_subs
 }
 
 fn substitute(atom: Atom, substitution: Substitution) -> Atom {
@@ -212,26 +215,26 @@ fn main() {
                     terms: vec![Var("X".to_string()), Var("Y".to_string())],
                 },
                 body: vec![Atom {
-                    pred_sym: "advisor".to_string(),
+                    pred_sym: "adviser".to_string(),
                     terms: vec![Var("X".to_string()), Var("Y".to_string())],
                 }],
             },
-            // Rule {
-            //     head: Atom {
-            //         pred_sym: "academicAncestor".to_string(),
-            //         terms: vec![Var("X".to_string()), Var("Z".to_string())],
-            //     },
-            //     body: vec![
-            //         Atom {
-            //             pred_sym: "academicAncestor".to_string(),
-            //             terms: vec![Var("X".to_string()), Var("Y".to_string())],
-            //         },
-            //         Atom {
-            //             pred_sym: "advisor".to_string(),
-            //             terms: vec![Var("Y".to_string()), Var("Z".to_string())],
-            //         },
-            //     ],
-            // },
+            Rule {
+                head: Atom {
+                    pred_sym: "academicAncestor".to_string(),
+                    terms: vec![Var("X".to_string()), Var("Z".to_string())],
+                },
+                body: vec![
+                    Atom {
+                        pred_sym: "academicAncestor".to_string(),
+                        terms: vec![Var("X".to_string()), Var("Y".to_string())],
+                    },
+                    Atom {
+                        pred_sym: "adviser".to_string(),
+                        terms: vec![Var("Y".to_string()), Var("Z".to_string())],
+                    },
+                ],
+            },
         ];
         let queries = vec![
             Rule {
@@ -287,7 +290,7 @@ fn main() {
         let a: Vec<_> = facts.chain(rules.into_iter()).collect(); //.chain(queries.into_iter()).collect();
         a
     };
-    dbg!(solve(ancestor));
+    solve(ancestor);
 }
 
 #[cfg(test)]
@@ -296,7 +299,7 @@ mod tests {
 
     #[test]
     fn test_eval_rule() {
-        let facts = vec![
+        let fact = vec![
             vec![
                 Sym("Andrew Rice".to_string()),
                 Sym("Mistral Contrastin".to_string()),
@@ -309,22 +312,45 @@ mod tests {
                 terms,
             },
             body: vec![],
-        });
-        let rules = vec![
+        }).next().unwrap();
+        let rule =
             Rule {
                 head: Atom {
                     pred_sym: "academicAncestor".to_string(),
                     terms: vec![Var("X".to_string()), Var("Y".to_string())],
                 },
                 body: vec![Atom {
-                    pred_sym: "advisor".to_string(),
+                    pred_sym: "adviser".to_string(),
                     terms: vec![Var("X".to_string()), Var("Y".to_string())],
                 }],
-            }];
+            };
         
-        let program = facts.chain(rules.into_iter()).collect();
-        let con = immediate_consequence(program, HashSet::new());
-        dbg!(con);
+        let program = vec![fact.clone(),rule];
+        // let con = immediate_consequence(program, HashSet::new());
+        // dbg!(con);
+
+        let mut kb: HashSet<Atom>= HashSet::new();
+        kb.insert(fact.head);
+
+        dbg!(immediate_consequence(program, kb));
+
+        // let er = eval_rule(kb, rule);
+        // dbg!(er);
+        // TEST
+        // dbg!(eval_atom(kb,rule.body[0].clone(), vec![empty_substition()]));
+
+        // let a = fact.head.clone();
+        // let b = rule.body[0].clone();
+        // dbg!(unify(b,a));
+
+        // let er =walk(HashSet::new(), rules[0].clone().body);
+        // assert!(er.is_empty())
+
+        // TEST
+        // let a = eval_atom(HashSet::new(), rules[0].clone().body[0].clone(), vec![empty_substition()]);
+        // assert!(a.is_empty());
+
 
     }
+
 }
