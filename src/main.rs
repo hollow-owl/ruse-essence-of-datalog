@@ -13,16 +13,54 @@ struct Rule {
     body: Vec<Atom>,
 }
 
+impl Rule {
+    fn new(head: Atom, body: Vec<Atom>) -> Self {
+        Rule { head, body }
+    }
+    fn fact(head: Atom) -> Self {
+        Rule {
+            head,
+            body: Vec::new(),
+        }
+    }
+}
+
 #[derive(PartialEq, Eq, Debug, Clone, Hash)]
 struct Atom {
     pred_sym: String,
     terms: Vec<Term>,
 }
 
+macro_rules! Atom {
+    ($pre_sym:ident()) => {
+        Atom {
+            pred_sym: stringify!($pre_sym).to_string(),
+            terms: vec![]
+        }
+    };
+    ($pre_sym:ident($($e:tt),*)) => {
+        Atom {
+            pred_sym: stringify!($pre_sym).to_string(),
+            terms: vec![$(
+                Term!($e),
+            )*]
+        }
+    }
+}
+
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 enum Term {
     Var(String),
     Sym(String),
+}
+
+macro_rules! Term {
+    ($v:ident) => {
+        Var(stringify!($v).to_string())
+    };
+    ($s:literal) => {
+        Sym($s.to_owned())
+    };
 }
 
 type KnowlegeBase = HashSet<Atom>;
@@ -86,19 +124,18 @@ fn walk(kb: KnowlegeBase, body: Vec<Atom>) -> Vec<Substitution> {
 fn eval_atom(kb: KnowlegeBase, atom: Atom, substitutions: Vec<Substitution>) -> Vec<Substitution> {
     let mut new_subs = vec![];
     for sub in substitutions {
-            let down_to_earth_atom = substitute(atom.clone(), sub.clone());
-            dbg!(&kb,&down_to_earth_atom,&sub);
-            let ext: HashMap<Term, Term> = kb
-                .clone()
-                .into_iter()
-                .filter_map(|x| unify(down_to_earth_atom.clone(), x))
-                .chain(iter::once(sub))
-                .flatten()
-                .collect();
-            if !ext.is_empty() {
-                new_subs.push(ext);
-            }
-            
+        let down_to_earth_atom = substitute(atom.clone(), sub.clone());
+        dbg!(&kb, &down_to_earth_atom, &sub);
+        let ext: HashMap<Term, Term> = kb
+            .clone()
+            .into_iter()
+            .filter_map(|x| unify(down_to_earth_atom.clone(), x))
+            .chain(iter::once(sub))
+            .flatten()
+            .collect();
+        if !ext.is_empty() {
+            new_subs.push(ext);
+        }
     }
     new_subs
 }
@@ -168,189 +205,122 @@ fn query(pred_sym: String, pr: Program) -> Vec<Substitution> {
     }
 }
 
-fn main() {
-    let ancestor: Program = {
-        let facts = vec![
+fn ancestor() -> Vec<Rule> {
+    let facts = vec![
+        Rule::fact(Atom!(adviser("Andrew Rice", "Mistral Contrastin"))),
+        Rule::fact(Atom!(adviser("Dominic Orchard", "Andrew Rice"))),
+        Rule::fact(Atom!(adviser("Andy Hopper", "Andrew Rice"))),
+        Rule::fact(Atom!(adviser("Alan Mycroft", "Dominic Orchard"))),
+        Rule::fact(Atom!(adviser("David Wheeler", "Andy Hopper"))),
+        Rule::fact(Atom!(adviser("Rod Burstall", "Alan Mycroft"))),
+        Rule::fact(Atom!(adviser("Robin Milner", "Alan Mycroft"))),
+    ]
+    .into_iter();
+    let rules = vec![
+        Rule::new(
+            Atom!(academicAncestor(X, Y)),
+            vec![Atom!(academicAncestor(X, Y)), Atom!(adviser(Y, Z))],
+        ),
+        Rule::new(Atom!(academicAncestor(X, Y)), vec![Atom!(adviser(X, Y))]),
+    ]
+    .into_iter();
+    let queries = vec![
+        Rule::new(
+            Atom!(query()),
             vec![
-                Sym("Andrew Rice".to_string()),
-                Sym("Mistral Contrastin".to_string()),
+                Atom!(academicAncestor("Robin Milner", Intermediate)),
+                Atom!(academicAncestor(Intermediate, "Mistral Contrastin")),
             ],
-            vec![
-                Sym("Dominic Orchard".to_string()),
-                Sym("Mistral Contrastin".to_string()),
-            ],
-            vec![
-                Sym("Andy Hopper".to_string()),
-                Sym("Andrew Rice".to_string()),
-            ],
-            vec![
-                Sym("Alan Mycroft".to_string()),
-                Sym("Dominic Orchard".to_string()),
-            ],
-            vec![
-                Sym("David Wheeler".to_string()),
-                Sym("Andy Hopper".to_string()),
-            ],
-            vec![
-                Sym("Rod Burstall".to_string()),
-                Sym("Alan Mycroft".to_string()),
-            ],
-            vec![
-                Sym("Robin Milner".to_string()),
-                Sym("Alan Mycroft".to_string()),
-            ],
-        ]
-        .into_iter()
-        .map(|terms| Rule {
-            head: Atom {
-                pred_sym: "adviser".to_string(),
-                terms,
-            },
-            body: vec![],
-        });
-        let rules = vec![
-            Rule {
-                head: Atom {
-                    pred_sym: "academicAncestor".to_string(),
-                    terms: vec![Var("X".to_string()), Var("Y".to_string())],
-                },
-                body: vec![Atom {
-                    pred_sym: "adviser".to_string(),
-                    terms: vec![Var("X".to_string()), Var("Y".to_string())],
-                }],
-            },
-            Rule {
-                head: Atom {
-                    pred_sym: "academicAncestor".to_string(),
-                    terms: vec![Var("X".to_string()), Var("Z".to_string())],
-                },
-                body: vec![
-                    Atom {
-                        pred_sym: "academicAncestor".to_string(),
-                        terms: vec![Var("X".to_string()), Var("Y".to_string())],
-                    },
-                    Atom {
-                        pred_sym: "adviser".to_string(),
-                        terms: vec![Var("Y".to_string()), Var("Z".to_string())],
-                    },
-                ],
-            },
-        ];
-        let queries = vec![
-            Rule {
-                head: Atom {
-                    pred_sym: "query1".to_string(),
-                    terms: vec![Var("Intermediate".to_string())],
-                },
-                body: vec![
-                    vec![
-                        Sym("Robin Milner".to_string()),
-                        Sym("Intermediate".to_string()),
-                    ],
-                    vec![
-                        Sym("Intermediate".to_string()),
-                        Sym("Mistral Contrastin".to_string()),
-                    ],
-                ]
-                .into_iter()
-                .map(|x| Atom {
-                    pred_sym: "academicAncestor".to_string(),
-                    terms: x,
-                })
-                .collect(),
-            },
-            Rule {
-                head: Atom {
-                    pred_sym: "query2".to_string(),
-                    terms: vec![],
-                },
-                body: vec![Atom {
-                    pred_sym: "academicAncestor".to_string(),
-                    terms: vec![
-                        Sym("Alan Turing".to_string()),
-                        Sym("Mistral Contrastin".to_string()),
-                    ],
-                }],
-            },
-            Rule {
-                head: Atom {
-                    pred_sym: "query3".to_string(),
-                    terms: vec![],
-                },
-                body: vec![Atom {
-                    pred_sym: "academicAncestor".to_string(),
-                    terms: vec![
-                        Sym("David Wheeler".to_string()),
-                        Sym("Mistral Conrastin".to_string()),
-                    ],
-                }],
-            },
-        ];
-
-        let a: Vec<_> = facts.chain(rules.into_iter()).collect(); //.chain(queries.into_iter()).collect();
-        a
-    };
-    solve(ancestor);
+        ),
+        Rule::new(
+            Atom!(query()),
+            vec![Atom!(academicAncestor("Alan Turing", "Mistral Contrastin"))],
+        ),
+        Rule::new(
+            Atom!(query()),
+            vec![Atom!(academicAncestor(
+                "David Wheeler",
+                "Mistral Contrastin"
+            ))],
+        ),
+    ]
+    .into_iter();
+    facts.chain(rules).chain(queries).collect()
 }
+
+fn main() {
+    solve( ancestor());
+}
+
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
+    fn test_essense_example() {
+        let facts = vec![
+            Rule::fact(Atom!(adviser("Andrew Rice", "Mistral Contrastin"))),
+            Rule::fact(Atom!(adviser("Dominic Orchard", "Andrew Rice"))),
+            Rule::fact(Atom!(adviser("Andy Hopper", "Andrew Rice"))),
+            Rule::fact(Atom!(adviser("Alan Mycroft", "Dominic Orchard"))),
+            Rule::fact(Atom!(adviser("David Wheeler", "Andy Hopper"))),
+            Rule::fact(Atom!(adviser("Rod Burstall", "Alan Mycroft"))),
+            Rule::fact(Atom!(adviser("Robin Milner", "Alan Mycroft"))),
+        ]
+        .into_iter();
+        let rules = vec![
+            Rule::new(
+                Atom!(academicAncestor(X, Y)),
+                vec![Atom!(academicAncestor(X, Y)), Atom!(adviser(Y, Z))],
+            ),
+            Rule::new(Atom!(academicAncestor(X, Y)), vec![Atom!(adviser(X, Y))]),
+        ]
+        .into_iter();
+        let queries = vec![
+            Rule::new(
+                Atom!(query()),
+                vec![
+                    Atom!(academicAncestor("Robin Milner", Intermediate)),
+                    Atom!(academicAncestor(Intermediate, "Mistral Contrastin")),
+                ],
+            ),
+            Rule::new(
+                Atom!(query()),
+                vec![Atom!(academicAncestor("Alan Turing", "Mistral Contrastin"))],
+            ),
+            Rule::new(
+                Atom!(query()),
+                vec![Atom!(academicAncestor(
+                    "David Wheeler",
+                    "Mistral Contrastin"
+                ))],
+            ),
+        ]
+        .into_iter();
+
+        let program: Program = facts.chain(rules).chain(queries).collect();
+        dbg!(solve(program));
+    }
+    #[test]
     fn test_eval_rule() {
-        let fact = vec![
-            vec![
-                Sym("Andrew Rice".to_string()),
-                Sym("Mistral Contrastin".to_string()),
-            ],
+        let fact = Rule::new(Atom!(adviser("AR", "MC")), vec![]);
+        let rule = Rule::new(
+            Atom!(academicAncestor(X, Y)),
+            vec![Atom!(academicAncestor(X, Y)), Atom!(adviser(Y, Z))],
+        );
+        let r2 = Rule::new(Atom!(academicAncestor(X, Y)), vec![Atom!(adviser(X, Y))]);
+
+        let program = vec![fact, rule, r2];
+        let kb = vec![Atom!(adviser("AR", "MC"))].into_iter().collect();
+
+        let out = immediate_consequence(program, kb);
+        let expected = vec![
+            Atom!(adviser("AR", "MC")),
+            Atom!(academicAncestor("AR", "MC")),
         ]
         .into_iter()
-        .map(|terms| Rule {
-            head: Atom {
-                pred_sym: "adviser".to_string(),
-                terms,
-            },
-            body: vec![],
-        }).next().unwrap();
-        let rule =
-            Rule {
-                head: Atom {
-                    pred_sym: "academicAncestor".to_string(),
-                    terms: vec![Var("X".to_string()), Var("Y".to_string())],
-                },
-                body: vec![Atom {
-                    pred_sym: "adviser".to_string(),
-                    terms: vec![Var("X".to_string()), Var("Y".to_string())],
-                }],
-            };
-        
-        let program = vec![fact.clone(),rule];
-        // let con = immediate_consequence(program, HashSet::new());
-        // dbg!(con);
-
-        let mut kb: HashSet<Atom>= HashSet::new();
-        kb.insert(fact.head);
-
-        dbg!(immediate_consequence(program, kb));
-
-        // let er = eval_rule(kb, rule);
-        // dbg!(er);
-        // TEST
-        // dbg!(eval_atom(kb,rule.body[0].clone(), vec![empty_substition()]));
-
-        // let a = fact.head.clone();
-        // let b = rule.body[0].clone();
-        // dbg!(unify(b,a));
-
-        // let er =walk(HashSet::new(), rules[0].clone().body);
-        // assert!(er.is_empty())
-
-        // TEST
-        // let a = eval_atom(HashSet::new(), rules[0].clone().body[0].clone(), vec![empty_substition()]);
-        // assert!(a.is_empty());
-
-
+        .collect();
+        assert_eq!(out, expected);
     }
-
 }
