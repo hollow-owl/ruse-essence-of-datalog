@@ -1,0 +1,2 @@
+# The Essence of Datalog
+I found a blog post called [The Essence of Datalog](https://dodisturb.me/posts/2018-12-25-The-Essence-of-Datalog.html) and thought it was interesting so I implemented it in rust.
